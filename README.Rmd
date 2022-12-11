@@ -1,0 +1,446 @@
+---
+title: "A Closer Look At Indian Cuisine With Data Science"
+author: "Didier Yourassoff"
+date: "(`r format(Sys.time(), '%d %B, %Y')`)"
+output:
+  github_document:
+      toc: true
+bibliography: "DYreferences.bib"
+---
+
+***
+
+![](https://spiceeats.com/wp-content/uploads/2020/07/Garam-Masala.jpg)
+
+***
+
+This report uses the [R programming language](https://cran.r-project.org/doc/FAQ/R-FAQ.html) [@R] and the following [R libraries](https://r-pkgs.org/intro.html) [@Fox2019;@tidyverse;@knitr].
+
+```{r, message=FALSE, warning=FALSE}
+#Import libraries
+library(car)
+library(tidyverse)
+library(knitr)
+```
+
+***
+
+# Introduction
+
+My friends like to describe me as a gourmet. I love to eat, to cook. Food is an integral part of my life, as I am sure it is of yours. Life made me discover Indian food a little more deeply at the beginning of this year. I have been interested in it ever since. So much so that while searching for data for my data practical, I came across a data set listing lots of Indian dishes. Bingo! No need to continue the research. I have my raw material for my work. The subject interests me and at the same time I can learn more about this spicy cuisine. Let's go!
+
+So I'm going to work with the [Indian Food 101](https://www.kaggle.com/datasets/nehaprabhavalkar/indian-food-101) data set assembled by Neha Prabhavalkar. I have retrieved the data from [Kaggle](https://www.kaggle.com/datasets), a site known for listing a large number of datasets. According to the description provided with the data set [Indian Food 101](https://www.kaggle.com/datasets/nehaprabhavalkar/indian-food-101), it contains information about 255 traditional Indian dishes: including the ingredients required to make them, the place of origin of the dishes and many other elements. To learn more, let's take a look at the data!
+
+***
+
+# Diving Into The Data Set 
+
+First, I will import the data and display the first rows of the table.
+
+```{r, warning=FALSE, message=FALSE}
+#Import data from github repository
+IndianFood_df <- read_csv(url("https://raw.githubusercontent.com/DidierYourassoff/IntroDataScience/main/indian_food.csv"))
+#Display the first lines of the table
+head(IndianFood_df) %>% kable()
+```
+
+From the first lines, and the names of the columns, I can already see that I have a column for the name of each dish, one for the necessary ingredients, one for the diet, one for the preparation time, one for the cooking time, one for the course of meal, one for the flavor profile, one for the state of origin and finally one for the region of origin of each dish.
+
+Also, as it stands, for the ingredients column, I see that there are several ingredients listed in one cell, while the other columns contain one piece of information per cell. For example, there is only one region or preparation time for each dish. I will come back to this later.
+
+Now let's look at the last few rows of the table.
+
+```{r message=FALSE, warning=FALSE}
+#Display the last lines of the table
+tail(IndianFood_df) %>% kable()
+```
+
+The last lines don't give much more information than the first lines. I see, for example, concerning the flavor profile, a new value, "spicy", where I had only "sweet" in the first lines. Similarly, concerning the course column, a new value "main course", where I had only "dessert".
+
+However, when I look at these last lines, I discover cells with the value (-1). According to the description provided with the data set, this is a convention to notify cells that have no assigned values. Preferring to work with NA's, I will replace each value (-1) with a NA in the data set.
+
+Here is what the last rows of the table look like now.
+
+```{r, warning=FALSE, message=FALSE}
+#Replacing (-1) with NA
+IndianFood_df <- na_if(IndianFood_df, -1)
+
+tail(IndianFood_df) %>% kable()
+```
+
+Now let's take a broader perspective by starting with the `str()` function.
+
+```{r, warning=FALSE, message=FALSE}
+#Display the structure of the data set
+str(IndianFood_df)
+```
+
+Here I see that the data set represents 255 rows and 9 columns. Among the 9 columns, there are 2 of type numeric (num) and 7 of type character (chr). Then, I can get a synthetic overview thanks to the `summary()` function.
+
+```{r, warning=FALSE, message=FALSE}
+#Display a synthetic overview
+summary(IndianFood_df)
+```
+
+What do we have this time? I see several interesting pieces of information for the prep_time and cook_time columns, namely the mean, the median. Also for prep_time I have 30 NA's, which means that the preparation time is not filled in for 30 dishes; similarly, I have 28 NA's for cook_time, which means that the cooking time is not filled in for 28 dishes.
+
+For the rest of the columns, I only retain one length information being 255 for all. This echoes the 255 rows that the table has as indicated by the `str()` function above. That said, I can get more information from the `str()` and `summary()` functions by turning the character columns into factor ones. 
+
+Here is the structure with the type conversions of the columns.
+
+```{r, warning=FALSE, message=FALSE}
+#Convert character columns as factor ones
+IndianFood_df <- IndianFood_df %>%
+  mutate_if(is.character, as.factor)
+
+str(IndianFood_df)
+```
+
+And the output of the `summary()` function.
+
+```{r, warning=FALSE, message=FALSE}
+summary(IndianFood_df)
+```
+
+I will consider one column after another.
+
+First, using the `str()` function, I see that the name column contains "255 levels", which means that there are 255 unique names, or one name for each dish. This corroborates the description of the data set given in the introduction.
+
+Similarly, the function `str()` indicates that the ingredients column contains "252 levels", which means that there are 252 combinations of ingredients. And since there are 255 dishes referenced for 252 ingredient combinations, this means that some dishes have the same ingredient combination. I can verify this by looking at the output of the `summary()` function, which indeed shows two occurrences for each of the following combinations:
+
+* "Arbi ke patte, sesame seeds, gur, bengal gram flour, imli"
+* "Chhena, sugar, ghee"
+* "Gram flour, ghee, sugar".
+
+Then, for the diet column, I note from the `str()` function that there are "2 levels". And the output of the `summary()` function explains the two types of meals they refer to, namely "non-vegetarian" and "vegetarian".
+
+I won't dwell on the prep_time and cook_time columns here, since they were not affected by the column type conversion.
+
+For the flavor profile, the `str()` function displays "4 levels", which I find in the output of `summary()`, namely "bitter", "sour", "spicy", "sweet". I also note that there are 28 NA's, which means that 28 dishes have no value assigned for the flavor profile.
+
+Then, for the course column, the `str()` function returns "4 levels", and `summary()` describes "dessert", "main course", "snack", "starter".
+
+For the state column, the `str()` function returns "24 levels". That is, 24 different states. On the other hand, the `summary()` function makes explicit only the five largest states in terms of number of associated dishes; the others appear as "(Other)" in addition to the NA's. Still, 24 is a possible and consistent number given that India has 29 states and seven union territories [@Dandona2017].
+
+Finally, for the original region column, I get from the `str()` function "6 levels", which are summarized by the `summary()` function as follows: "Central", "East", "North", "North East", "South", "West", and NA's.
+
+That's fine. This gives us a first impression of what is in our data set. A first impression that raises a lot of questions for me. I will address them in the next section.
+
+***
+
+# Research Question And Hypotheses
+
+Exploring this data set, I wonder if the course of meal has an influence on the number of ingredients in a dish, but also on which ingredients are used. In other words, does the fact of being a main course imply to have more ingredients on average compared to a dessert for example. And, do desserts have completely different ingredients than snacks typically. To answer these questions, I will work with two hypotheses. 
+
+## Hypotheses
+
+Let's pose the two hypotheses that will guide the rest of this report.  
+
+### Null Hypothesis
+
+* H0: The course of meal of a dish, i.e. being a dessert, a main course, a starter, or a snack, has no impact on the number of ingredients used on average for the dish nor on which ingredients are used.
+
+### Alternative Hypothesis
+
+* HA: The course of meal of a dish, i.e., being a dessert, main course, starter, or snack, has an impact on the number of ingredients used on average for the dish and also on which ingredients are used.
+
+***
+
+# What Is To Be Kept In All This Data?
+
+Given my hypotheses, I will not keep all the columns and rows of the data set. Not everything is relevant to test the them. To be convinced of this, let's consider the graph below. 
+
+```{r, warning=FALSE, message=FALSE}
+IndianFood_df %>%
+  ggplot(aes(x = course, fill = course)) + 
+  geom_bar() +
+  #Display subplots based on the diet type
+  facet_wrap(~ diet) +
+  #Set labels for x axis, y axis, fill parameter, main title
+  labs(x = "Type of dish", y = "Number of dishes", fill = "Course of meal", title = "Overview of non-vegetarian/vegeterian dishes") +
+  #Angle the x axis labels  
+  guides(x = guide_axis(angle = 45)) +
+  #Center the main title
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+This graph shows from the whole data set, the number of dishes that correspond to a dessert, a main course, a snack and a starter while separating the vegetarian dishes from the non-vegetarian dishes. So I can see that on one side there are no non-vegetarian desserts or snacks and on the other side there are no vegetarian starters. For the desserts it is not a big discovery since it is not every day that you see meat in a dessert. On the other hand, as far as snacks and starters are concerned, it is a little less predictable.   
+
+More generally, this graph shows that the majority of dishes are vegetarians. That's why I suggest focusing on those. Since there is therefore no vegetarian starter, I will remove the starter level from the corresponding factor when selecting the data. I will do the same for all the factors showing a null level. This said, these remarks are mostly about the rows of the two columns course  and diet. What about the rest of the columns?
+
+Among all the columns of the data set, I will only keep the name, ingredients, diet, and course columns:
+
+- The name column identifies each dish, like an ID.
+- The ingredients column contains information about the ingredients, which are essential to answer my hypotheses.
+- The diet column allows me to separate my data: once I have made the selection of vegetarian dishes, I will delete it because each selected dish will be stamped vegetarian and the column will not allow any distinction in the new data set.
+- The course column contains information about the position in the course of the meal of each dish, which is essential to answer my hypotheses.
+
+In view of my hypotheses, I will not keep the prep_time, cook_time, region, and state columns. Indeed, I choose to exclude the geographical information on the origin of the dishes as well as the temporal information to realize them because they are not relevant. How is the selection of columns and rows translated in the code?
+
+Here is a way to do it: 
+
+```{r, warning=FALSE, message=FALSE}
+#Selection of the relevant data  
+Relevantfood <- IndianFood_df %>%
+  #Filter vegetarian meal
+  filter(diet=="vegetarian") %>%
+  #Select relevant columns 
+  select(name, course, ingredients)
+#Remove null factor level in the data set 
+Relevantfood <- droplevels.data.frame(Relevantfood)
+```
+
+And here is the corresponding structure: 
+
+```{r, warning=FALSE, message=FALSE}
+str(Relevantfood)
+```
+
+So I have 226 recipes left to work with as indicated by the "226 levels" in the name column at the output of the `str()` function. I come back to my hypothesis. 
+
+The null hypothesis is divided in two parts, since it is about the number of ingredients used on average for a dish and about the ingredients used. I will continue with the first part in the following section.
+
+***
+
+# How Many Ingredients Per Dish? 
+
+As you may have noticed, I don't have a column that gives the number of ingredients for each dish for the moment. On the other hand, as mentioned above, the ingredients column gathers all the ingredients of each recipe in the same cell. And if I look closely, I see that each ingredient is separated by a comma in the same cell. So, if I can count the number of commas in the ingredients cell for each recipe, I can deduce the number of ingredients in the recipe: to be clear, it's the number of commas plus one since a comma separates two ingredients. Let's do it!
+
+```{r, warning=FALSE, message=FALSE}
+NbrIngPerDish <- Relevantfood %>%
+  #Create a new column called NbrIng and calculate the sum of ingredients used in each recipe
+  mutate(Relevantfood, NbrIng = (str_count(ingredients, ",") +1))
+```
+
+Here are the first lines, the recipes with the most ingredients at the top:
+
+```{r, warning=FALSE, message=FALSE}
+  NbrIngPerDish %>%
+  #Sort in descending order
+  arrange(desc(NbrIng)) %>%
+  head() %>%
+  kable()
+```
+
+I note here that the maximum number of ingredients for a recipe is 10 and this is a dessert. I now call the `summary()` function for more details.
+
+```{r, warning=FALSE, message=FALSE}
+summary(NbrIngPerDish)
+```
+
+The output of the `summary()` function provides the number of recipes according to course of meal. In figures, 39 recipes of snacks, 85 desserts and 102 main course. I note that there were already 85 desserts in the whole data set, i.e. the one containing vegetarian and non-vegetarian dishes. However, the graph I mentioned above clearly shows that all the desserts are vegetarian. This is why I get the same number of desserts in the filtered data set with only vegetarian dishes. The same reasoning applies for the snacks. 
+
+Now the idea is to assess if one type of dish requires more or less ingredients than another. I will start by visualizing the distribution of the number of ingredients per dish according to the type of dish.
+
+```{r, warning=FALSE, message=FALSE}
+# Calculate the number of dishes, i.e. sample size 
+sample_size = NbrIngPerDish %>%
+  group_by(course) %>%
+  summarise(num = n())
+
+NbrIngPerDish %>%
+  #Add sample size data to data set
+  left_join(sample_size) %>%
+  #Create a column to display sample size 
+  mutate(myaxis = paste0(course, "\n", "n=", num)) %>%
+  ggplot(aes(x = myaxis, y = NbrIng, fill = course)) +
+    geom_violin() +
+    labs(x = "Type of dish", y = "Number of ingredients", fill = "Course of meal", title = "Number Of Ingredients Based On Type Of Dish") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+This graph illustrates that main courses and snacks are most often made up of 5 ingredients each. Desserts, on the other hand, are most often made up of only 3-4 ingredients. Thus, the first part of my hypothesis appears to be false. That is, whether to be a dessert, or a main course, or a snack has an influence on the number of ingredients used. I will put these results to the statistical test to see if it is significant.
+
+## Statistics
+
+### Description Of The Variables
+
+Here, I want to compare the means of the number of ingredients used of three groups: desserts, main courses and snacks. These groups correspond to the independent variable type of dish. This is a categorical one. Then, the average of the ingredients used is the dependent variable, quantitative. Thus, under these conditions, the appropriate test would be ANOVA. However, I have to check several assumptions before performing this test. If the assumptions are not satisfied, I will have to use the non-parametric version of this test, namely Kruskal-Wallis. 
+
+### Statistical Assumptions 
+
+#### Independence Of Observations
+
+Each dish is unique and cannot be a of two type at the same time in this data set. Therefore, the independence of observations is satisfied. 
+
+#### Homogeneity Of Variance 
+
+To assess the homogeneity of variance, I can use Levene's test. It uses an F-test to test the null hypothesis that the variance is equal across groups. A p value less than 0.05 indicates a violation of the assumption. Here is what it looks like in the code: 
+
+```{r, warning=FALSE, message}
+#Levene's Test (Number of Ingredient per dish ~ course, data = NbrIngPerDish)
+leveneTest(NbrIng ~ course, data = NbrIngPerDish)
+```
+
+I get a p value smaller than 0.05, which means that the test is significant. In other words, the assumption of homogeneity of variance is violated. Therefore, I will have to adopt the non-parametric version of ANOVA that I wanted to do. That said, for completeness I will still evaluate the third assumption, the normality of Data.
+
+#### Normality Of Data
+
+To assess normality of Data, I can use Shapiro-Wilk's test. Again, if I get a p value less than 0.05, it indicates a violation of the assumption. Let's try it!
+
+```{r, warning=FALSE, message=FALSE}
+#Test normality of Datat
+shapiro.test(NbrIngPerDish$NbrIng)
+```
+
+I get a p value smaller than 0.05, which means that the test is significant. In other words,  the assumption of normality of data is not satisfied. So, out of the three assumptions, my data fail to satisfy two of them. For this reason, I will use the non-parametric version of ANOVA, namely Kruskal-Wallis.
+
+### Kruskal-Wallis' Test
+
+Here is what I get for the Kruskal-Wallis test: 
+
+```{r, warning=FALSE, message=FALSE}
+#Non-parametric test to compare between more than 2 groups
+kruskal.test(NbrIng ~ course, data = NbrIngPerDish)
+``` 
+The p value is smaller than 0.001 (p value < 0.001), I can then say that there are significant differences in the number of ingredients used between the following groups: main course, dessert, snack. Thus, the first part of my null hypothesis (H0) is rejected.
+
+In the next section, I will look at what ingredients are most commonly used, and whether that changes from one type of dish to another. 
+
+***
+
+# What Are The Most Commonly Used Ingredients? 
+
+Now if I want to work on the most commonly used ingredients in a practical way, I will have to tidy up my data. That is to say, at the beginning, I highlighted that a single cell contained all the ingredients for a given recipe. The idea is then to work on these cells to obtain one ingredient per cell for each recipe, i.e. one information per cell, in short tidy data.
+
+## Format: The Longer, The Better
+
+I showed above that the maximum number of ingredients for a recipe is 10. This implies that in order to separate my ingredient column, I must spread it out over 10 columns, or one ingredient per column. Recipes with less than 10 ingredients will have NA's. In terms of code, I use the `separate()` function which asks for a vector to name the new columns that will appear. 
+
+```{r, warning=FALSE, message=FALSE}
+#Create a vector to name the new column afterward
+NewColNames <- c("ing1","ing2","ing3","ing4","ing5","ing6","ing7","ing8","ing9","ing10")
+
+NbrDishwtIng_wide <- NbrIngPerDish %>%
+  #Split ingredient column
+  separate(ingredients, NewColNames, sep=",")
+```
+
+Here is the resulting structure:
+
+```{r, warning=FALSE, message=FALSE}
+str(NbrDishwtIng_wide)
+```
+
+And the first lines of the table:
+
+```{r, warning=FALSE, message=FALSE}
+head(NbrDishwtIng_wide) %>% kable()
+```
+
+Then, I will transform this table, which now corresponds rather to a large format, into a long format with the function `pivot_longer()`:
+
+```{r, warning=FALSE, message=FALSE}
+NbrDishwtIng_long <- NbrDishwtIng_wide %>%
+  #Transform the wide format to a long format 
+  pivot_longer(ing1:ing10, names_to = "IngRank", values_to = "Ing")
+```
+
+Here is the resulting structure:
+
+```{r, warning=FALSE, message=FALSE}
+str(NbrDishwtIng_long)
+```
+
+As at the very beginning, I will transform the character columns into factor one to get the most out of the `summary()` function. Here is what I get:
+
+```{r, warning=FALSE, message=FALSE}
+NbrDishwtIng_long <- NbrDishwtIng_long %>%
+  mutate_if(is.character, as.factor)
+
+summary(NbrDishwtIng_long)
+```
+
+Here, I immediately see a large number of NA's for the Ing column: this is because of the empty boxes corresponding to recipes with less than 10 ingredients. As a reminder, the maximum is 10, and there is only one recipe that has that many. So I propose to clean up the data a bit to see it more clearly, i.e. filter the NA's and delete the IngRank column which comes from the change of format from wide to long. 
+
+```{r, warning=FALSE, message=FALSE}
+NbrDishwtIng_clean <- NbrDishwtIng_long %>%
+  #Remove NA'S rows
+  filter(!is.na(Ing)) %>%
+  #Remove IngRank column
+  select(-IngRank)
+```
+
+And here is the structure of the data once cleaned up. Then, I display the output of the `summary()` function.
+
+```{r, warning=FALSE, message=FALSE}
+str(NbrDishwtIng_clean)
+
+summary(NbrDishwtIng_clean)
+```
+
+So I end up with a table here of 4 columns for 987 rows according to the `str()` function. And thanks to the output of the `summary()` function, I can notice that the 5 most used ingredients are : 
+
+- sugar,
+- ghee,
+- curry leaves,
+- garam masala, 
+- ginger.
+
+However, these results represent all dishes regardless of type. How can I observe the five most used ingredients for each type of dish, namely dessert, main course and snack? 
+
+First, I will select the five most used ingredients for each type of dish course by combining the `group_by()` and `slice()` functions. 
+
+```{r, warning=FALSE, message=FALSE}
+Top5bycourse <- NbrDishwtIng_clean %>%
+  #Group data according the type of dish, and the ingredients
+  group_by(course, Ing) %>%
+  #Count the size of group
+  summarise(Nbrofdish=n()) %>%
+  arrange(desc(Nbrofdish)) %>%
+  #Select the first 5 rows of course & Ing grouping 
+  slice(c(1:5))
+
+Top5bycourse
+```
+
+The chart above gives the numbers I am looking for. However, I suggest making two graphs to make things more visual.
+
+## Getting Visual
+
+Here is a first graph:
+
+```{r, warning=FALSE, message=FALSE}
+Top5bycourse %>%
+  ggplot(aes(x = Ing, y= Nbrofdish, fill=Ing)) + 
+  geom_col()  +
+  facet_wrap(~course, dir="v")+
+  labs(x = "Ingredients", y = "Number of dish with", fill = "Ingredients", title = "5 Most Used Ingredient Based On Dish Type") +
+  guides(x = guide_axis(angle = 45)) +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+The main thing to keep for this graph is that in the 5 most used ingredients according to type of dish, none is common to all three at the same time.
+
+Here is the second graph:
+
+```{r, warning=FALSE, message=FALSE}
+Top5bycourse %>%
+  ggplot(aes(x = course, y= Nbrofdish, fill=Ing)) + 
+  geom_col()  +
+  facet_wrap(~Ing) +
+  labs(x = "Ingredients", y = "Number Of Dish With", fill = "Ingredients", title = "Distribution Of Most Used Ingredients among Dish Types") +
+  guides(x = guide_axis(angle = 45)) +
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+```
+
+This second graph allows you to visualize how each ingredient, among the most used, is distributed between the main courses, snacks and desserts. Typically, if the graph shows a bar in one of the small windows, it means that the ingredient is among the most used for this type of dish, and that it is characteristic of it.
+
+For example, for desserts, it is striking to see that the 5 most used ingredients, namely sugar, ghee, jaggery, milk and rice floor, are not found in the other two types. Therefore, these 5 ingredients are particularly characteristic of this type of dish. As for the snack type, the bengal gram flour and the Chana dal are the characteristic ingredients and finally for the main course, the garam masala and the tomatoes are particularly characteristic.
+
+Finally, I note that curry leaves, urad dal and ginger are frequent in both the snacks and the main course. 
+
+By the above, I see that the different types of meals are most frequently made up of different ingredients. Thus the second part of my null hypothesis(H0) is also false and I can then adopt my alternative hypothesis (HA) which is verified by consequence.
+
+***
+
+# Conclusion
+
+After this analytical journey, I can conclude on the one hand that the fact of being a dessert rather than a main course or a snack has an influence on the number of ingredients used on average, namely between 3 and 4 for a dessert, and 5 for the main course and snack.
+
+On the other hand, each type of dish is characterized by different ingredients, at least for those that are used most often. And in this respect, desserts that have no ingredients in common with the main course and snack are particularly distinct.
+
+***
+
+# References
