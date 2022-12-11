@@ -10,7 +10,7 @@ bibliography: "DYreferences.bib"
 
 ***
 
-![](https://spiceeats.com/wp-content/uploads/2020/07/Garam-Masala.jpg)
+![](Garam-Masala.jpg)
 
 ***
 
